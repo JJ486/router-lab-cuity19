@@ -11,8 +11,8 @@ in6_addr eui64(const ether_addr mac) {
   res.s6_addr[12]=0xFE;
   for (int i = 1; i < 4; i++)
   {
-    res.s6_addr[7+i]=mac.octet[i-1];//9~11B=MAC1~3B
-    res.s6_addr[12+i]=mac.octet[i+2];//14~16B=MAC4~6B
+    res.s6_addr[7+i]=mac.ether_addr_octet[i-1];//9~11B=MAC1~3B
+    res.s6_addr[12+i]=mac.ether_addr_octet[i+2];//14~16B=MAC4~6B
   }
   __uint8_t correctBit=0xFD|~(res.s6_addr[8]&2);
   res.s6_addr[8]=(res.s6_addr[8]|0x02)&correctBit;//Set it to correct vlu by and
