@@ -218,10 +218,10 @@ int main(int argc, char *argv[])
       // 即，如果某一条路由表项是从 interface A 学习到的，那么发送给 interface A
       // 的 RIPng 表项中，该项的 metric 设为 16。详见 RFC 2080 Section 2.6 Split
       // Horizon。因此，发往各个 interface 的 RIPng 表项是不同的。
-      Temp::multiCastMac.octet[2] = 0x00;
-      Temp::multiCastMac.octet[3] = 0x00;
-      Temp::multiCastMac.octet[4] = 0x00;
-      Temp::multiCastMac.octet[5] = 0x09;
+      Temp::multiCastMac.ether_addr_octet[2] = 0x00;
+      Temp::multiCastMac.ether_addr_octet[3] = 0x00;
+      Temp::multiCastMac.ether_addr_octet[4] = 0x00;
+      Temp::multiCastMac.ether_addr_octet[5] = 0x09;
       for (int i = 0; i < N_IFACE_ON_BOARD; i++)
       {
         sendWholeTable(i, inet6_pton("ff02::9"), Temp::multiCastMac);
