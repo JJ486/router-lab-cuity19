@@ -124,7 +124,6 @@ static inline ip6_hdr *constructOutputIpv6Header(int if_index, int plen, int nxt
 static inline void sendWholeTable(int if_index, const in6_addr &targetAddr, const ether_addr &targetMac)
 {
 
-  ip6_hdr *ip6 = constructOutputIpv6Header(if_index, 1234, IPPROTO_UDP, 255, targetAddr);
   udphdr *udp = (udphdr *)&output[sizeof(ip6_hdr)];
   // dst port
   udp->uh_dport = htons(521);
@@ -147,9 +146,9 @@ static inline void sendWholeTable(int if_index, const in6_addr &targetAddr, cons
       else
         Temp::ripPacket.entries[k].metric = thisEntry.metric + 1;
     }
-    ripngLen = assemble(&Temp::ripPacket, (uint8_t *)&output[sizeof(in6_addr) + sizeof(udphdr)]);
+    ripngLen = assemble(&Temp::ripPacket, (uint8_t *)&output[sizeof(ip6_hdr) + sizeof(udphdr)]);
     udp->uh_ulen = htons(ripngLen + sizeof(udphdr));
-    ip6->ip6_plen = htons(ripngLen + sizeof(udphdr));
+    constructOutputIpv6Header(if_index, ripngLen + sizeof(udphdr), IPPROTO_UDP, 255, targetAddr);
     validateAndFillChecksum(output, ripngLen + sizeof(udphdr) + sizeof(ip6_hdr));
 
     HAL_SendIPPacket(if_index, output, ripngLen + sizeof(udphdr) + sizeof(ip6_hdr), targetMac);
@@ -164,7 +163,7 @@ static inline void sendICMPv6Error(int type, int code, uint32_t specialField, in
   int plen = std::min(1232, res);
   for (int i = 0; i < plen; i++)
   {
-    output[+i] = packet[i];
+    output[sizeof(ip6_hdr)+sizeof(icmp6_hdr)+i] = packet[i];
   }
   constructOutputIpv6Header(receivedInterface, plen + sizeof(icmp6_hdr), IPPROTO_ICMPV6, 255, eui64(src_mac));
   validateAndFillChecksum(output, plen + sizeof(ip6_hdr) + sizeof(icmp6_hdr));
@@ -384,13 +383,14 @@ int main(int argc, char *argv[])
           icmp6_hdr *icmp6 = (icmp6_hdr *)&output[sizeof(ip6_hdr)];
           icmp6->icmp6_type = ICMP6_ECHO_REPLY;
           icmp6->icmp6_code = 0;
-          for (int i = 44; i < 40 + ip6->ip6_plen; i++)
+          for (int i = 44; i <res; i++)
           {
             output[i] = packet[i];
           }
-          ip6_hdr *ip6Out = constructOutputIpv6Header(receivedInterface, ip6->ip6_plen, IPPROTO_ICMPV6, 64, eui64(src_mac));
-          validateAndFillChecksum(output, ip6Out->ip6_plen + sizeof(ip6_hdr));
-          HAL_SendIPPacket(receivedInterface, output, ip6Out->ip6_plen + sizeof(ip6_hdr), src_mac);
+          ip6_hdr *ip6Out = constructOutputIpv6Header(receivedInterface, ntohs(ip6->ip6_plen), IPPROTO_ICMPV6, 64, ip6->ip6_src);
+          ip6Out->ip6_src=ip6->ip6_dst;
+          validateAndFillChecksum(output, ntohs(ip6Out->ip6_plen) + sizeof(ip6_hdr));
+          HAL_SendIPPacket(receivedInterface, output, ntohs(ip6Out->ip6_plen) + sizeof(ip6_hdr), src_mac);
         }
 
         // 如果是 Echo Request，生成一个对应的 Echo Reply：交换源和目的 IPv6
