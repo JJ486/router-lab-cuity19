@@ -4,6 +4,7 @@
 #include <netinet/in.h>
 #include <stdint.h>
 #include "common.h"
+#include <vector>
 
 /*
   表示路由表的一项。
@@ -16,9 +17,13 @@ typedef struct {
   uint32_t len;      // 前缀长度
   uint32_t if_index; // 出端口编号
   in6_addr nexthop;  // 下一跳的 IPv6 地址
+  uint8_t metric=0;
+  in6_addr learnedAddr={0};
+  bool changeFlag=false;
   // 为了实现 RIPng 协议，在 router 作业中需要在这里添加额外的字段
 } RoutingTableEntry;
 
+extern std::vector<RoutingTableEntry> routeTable;
 /**
  * @brief 插入/删除一条路由表表项
  * @param insert 如果要插入则为 true ，要删除则为 false
@@ -28,7 +33,14 @@ typedef struct {
  * 删除和更新时按照 addr 和 len **精确** 匹配。
  */
 void update(bool insert, const RoutingTableEntry entry);
-
+/**
+ * @brief Get the Entry object by exact match in len and addr
+ * 
+ * @param addr 
+ * @param len 
+ * @return std::vector<RoutingTableEntry>::iterator 
+ */
+std::vector<RoutingTableEntry>::iterator getEntry(const in6_addr& addr, int len);
 /**
  * @brief 进行一次路由表的查询，按照最长前缀匹配原则
  * @param addr 需要查询的目标地址，网络字节序

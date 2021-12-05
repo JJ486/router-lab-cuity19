@@ -2,9 +2,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <vector>
 
-std::vector<RoutingTableEntry> table;
+std::vector<RoutingTableEntry> routeTable;
 static int maxMatchLen(const in6_addr &lhs, const in6_addr &rhs, int maxLen = 128)
 {
   int maxMatchLength = 0;
@@ -26,57 +25,96 @@ static int maxMatchLen(const in6_addr &lhs, const in6_addr &rhs, int maxLen = 12
   }
   return maxLen;
 }
-static void printAddr(const in6_addr& src){
+static void printAddr(const in6_addr &src)
+{
   char nexthop_buffer[128];
   inet_ntop(AF_INET6, &src, nexthop_buffer,
-                         sizeof(nexthop_buffer));
-        printf("%s\n", nexthop_buffer);
+            sizeof(nexthop_buffer));
+  printf("%s\n", nexthop_buffer);
 }
 static std::vector<RoutingTableEntry>::iterator maxMatch(const in6_addr &target)
 {
-  std::vector<RoutingTableEntry>::iterator it = table.begin();
+  std::vector<RoutingTableEntry>::iterator it = routeTable.begin();
   int maxMatchLength = -1;
-  std::vector<RoutingTableEntry>::iterator maxMatchIt=table.end();
-  for (; it != table.end(); it++)
+  std::vector<RoutingTableEntry>::iterator maxMatchIt = routeTable.end();
+  for (; it != routeTable.end(); it++)
   {
     if (maxMatchLength >= (int)it->len)
       continue;
     if (maxMatchLength == 128)
       return maxMatchIt;
-    int tempMaxLen=maxMatchLen(target, it->addr);
-    tempMaxLen=tempMaxLen>it->len?it->len:tempMaxLen;
-    if(tempMaxLen<it->len)
-    continue;
+    int tempMaxLen = maxMatchLen(target, it->addr);
+    tempMaxLen = tempMaxLen > it->len ? it->len : tempMaxLen;
+    if (tempMaxLen < it->len)
+      continue;
     if (tempMaxLen > maxMatchLength)
     {
       // printf("tempMax=%d\n",tempMaxLen);
       // printAddr(it->addr);
       maxMatchIt = it;
-      maxMatchLength=tempMaxLen>it->len?it->len:tempMaxLen;
+      maxMatchLength = tempMaxLen > it->len ? it->len : tempMaxLen;
       if (maxMatchLength == 128)
         return maxMatchIt;
     }
   }
   return maxMatchIt;
 }
-void update(bool insert, const RoutingTableEntry entry)
+std::vector<RoutingTableEntry>::iterator getEntry(const in6_addr &addr, int len)
 {
-  for(auto it = table.begin();it!=table.end();it++){
-    if(it->len==entry.len){
-      int i=0;
+  for (auto it = routeTable.begin(); it != routeTable.end(); it++)
+  {
+    if (it->len == len)
+    {
+      int i = 0;
       for (; i < 16; i++)
       {
-        if(it->addr.s6_addr[i]!=entry.addr.s6_addr[i])
+        if (it->addr.s6_addr[i] != addr.s6_addr[i])
           break;
       }
-      if(i==16){
-        table.erase(it);
-        break;
+      if (i == 16)
+      {
+        return it;
       }
     }
   }
-  if (insert)
-    table.push_back(entry);
+  return routeTable.end();
+}
+void update(bool insert, const RoutingTableEntry entry)
+{
+  auto it = routeTable.begin();
+  for (; it != routeTable.end(); it++)
+  {
+    if (it->len == entry.len)
+    {
+      int i = 0;
+      for (; i < 16; i++)
+      {
+        if (it->addr.s6_addr[i] != entry.addr.s6_addr[i])
+          break;
+      }
+      if (i == 16)
+      {
+        if (insert)
+        {
+          if(it->learnedAddr==entry.learnedAddr){
+            it->metric=entry.metric;
+          }
+          else if (it->metric > entry.metric)
+          {
+            routeTable.erase(it);
+            routeTable.push_back(entry);
+          }
+        }
+        else
+        {
+          routeTable.erase(it);
+        }
+        return;
+      }
+    }
+  }
+  if (insert && entry.metric!=16 &&it == routeTable.end())
+    routeTable.push_back(entry);
   // TODO
 }
 
@@ -84,13 +122,13 @@ bool prefix_query(const in6_addr addr, in6_addr *nexthop, uint32_t *if_index)
 {
   // TODO
   auto it = maxMatch(addr);
-  if(it==table.end())
-  return false;
+  if (it == routeTable.end())
+    return false;
   for (int i = 0; i < 16; i++)
   {
-    nexthop->s6_addr[i]=it->nexthop.s6_addr[i];
+    nexthop->s6_addr[i] = it->nexthop.s6_addr[i];
   }
-  *if_index=it->if_index;
+  *if_index = it->if_index;
   return true;
 }
 
