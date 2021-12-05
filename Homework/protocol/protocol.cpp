@@ -56,13 +56,9 @@ RipErrorCode disassemble(const uint8_t *packet, uint32_t len,
       {
         for (int j = 3; j >= 0; j--)
         {
-          for (int k = 0; k < 8; k++)
-          {
-            if(thisEntry->prefix_or_nh.s6_addr[i*4+j]&(1<<k))
-              goto outside;
-            prefLen--;
-          }
-          
+          if(thisEntry->prefix_or_nh.s6_addr[i*4+j])
+          goto outside;
+          prefLen-=8;
         }
       }
       outside:
@@ -82,7 +78,7 @@ uint32_t assemble(const RipPacket *rip, uint8_t *buffer) {
   buffer+=4;
   for (int i = 0; i < rip->numEntries; i++)
   {
-    for (int j = 0; j < 20 ; j++)
+    for (int j = 0; j < 16 ; j++)
     {
         buffer[j]=rip->entries[i].prefix_or_nh.s6_addr[j];
     }
