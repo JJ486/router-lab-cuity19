@@ -82,7 +82,7 @@ uint32_t assemble(const RipPacket *rip, uint8_t *buffer) {
   buffer+=4;
   for (int i = 0; i < rip->numEntries; i++)
   {
-    for (int j = 0; j < 20 ; j++)
+    for (int j = 0; j < 16 ; j++)
     {
         buffer[j]=rip->entries[i].prefix_or_nh.s6_addr[j];
     }
