@@ -12,7 +12,7 @@
   当 nexthop 为零时这是一条直连路由。
   你可以在全局变量中把路由表以一定的数据结构格式保存下来。
 */
-typedef struct {
+typedef struct RTE{
   in6_addr addr;     // 匹配的 IPv6 地址前缀
   uint32_t len;      // 前缀长度
   uint32_t if_index; // 出端口编号

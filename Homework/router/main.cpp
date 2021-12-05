@@ -1,4 +1,3 @@
-#define ROUTER_R2
 #include "checksum.h"
 #include "common.h"
 #include "eui64.h"
@@ -96,7 +95,7 @@ static inline bool eq(const in6_addr &a, const in6_addr &b)
   }
   return true;
 }
-static inline ip6_hdr *constructOutputIpv6Header(int plen, int nxt, int hlim, const in6_addr &dst_ip)
+static inline ip6_hdr *constructOutputIpv6Header(int if_index, int plen, int nxt, int hlim, const in6_addr &dst_ip)
 {
   ether_addr mac;
   HAL_GetInterfaceMacAddress(if_index, &mac);
@@ -120,12 +119,12 @@ static inline ip6_hdr *constructOutputIpv6Header(int plen, int nxt, int hlim, co
   ip6->ip6_src = eui64(mac);
   // dst ip
   ip6->ip6_dst = dst_ip;
-  return ip6
+  return ip6;
 }
 static inline void sendWholeTable(int if_index, const in6_addr &targetAddr, const ether_addr &targetMac)
 {
 
-  ip6_hdr *ip6 = constructOutputIpv6Header(1234, IPPROTO_UDP, 255, targetAddr);
+  ip6_hdr *ip6 = constructOutputIpv6Header(if_index, 1234, IPPROTO_UDP, 255, targetAddr);
   udphdr *udp = (udphdr *)&output[sizeof(ip6_hdr)];
   // dst port
   udp->uh_dport = htons(521);
@@ -156,19 +155,19 @@ static inline void sendWholeTable(int if_index, const in6_addr &targetAddr, cons
     HAL_SendIPPacket(if_index, output, ripngLen + sizeof(udphdr) + sizeof(ip6_hdr), targetMac);
   }
 }
-static inline void sendICMPv6Error(int type, int code, uint32_t specialField, int res, const ether_addr& src_mac, int receivedInterface)
+static inline void sendICMPv6Error(int type, int code, uint32_t specialField, int res, const ether_addr &src_mac, int receivedInterface)
 {
-  icmp6_hdr *icmp6 = (icmp6_hdr *)&output(sizeof(ip6_hdr));
+  icmp6_hdr *icmp6 = (icmp6_hdr *)&output[sizeof(ip6_hdr)];
   icmp6->icmp6_code = code;
   icmp6->icmp6_type = type;
-  icmp6->icmp6_data32 = htonl(specialField);
-  int plen = min(1232, res);
+  icmp6->icmp6_data32[0] = htonl(specialField);
+  int plen = std::min(1232, res);
   for (int i = 0; i < plen; i++)
   {
     output[+i] = packet[i];
   }
-  constructOutputIpv6Header(plen + sizeof(icmp6_hdr), IPPROTO_ICMPV6, 255, eui64(src_mac));
-  validateAndFillChecksum(outpue, plen + sizeof(ip6_hdr) + sizeof(icmp6_hdr));
+  constructOutputIpv6Header(receivedInterface, plen + sizeof(icmp6_hdr), IPPROTO_ICMPV6, 255, eui64(src_mac));
+  validateAndFillChecksum(output, plen + sizeof(ip6_hdr) + sizeof(icmp6_hdr));
   HAL_SendIPPacket(receivedInterface, output, plen + sizeof(ip6_hdr) + sizeof(icmp6_hdr), src_mac);
   return;
 }
@@ -190,12 +189,11 @@ int main(int argc, char *argv[])
   for (uint32_t i = 0; i < N_IFACE_ON_BOARD; i++)
   {
     in6_addr mask = len_to_mask(112);
-    RoutingTableEntry entry = {
-        .addr = addrs[i] & mask,
-        .len = 112,
-        .if_index = i,
-        .nexthop = in6_addr{0} // 全 0 表示直连路由
-    };
+    RoutingTableEntry entry;
+    entry.addr = addrs[i] & mask;
+    entry.len = 112;
+    entry.if_index = i;
+    entry.nexthop = in6_addr{0}; // 全 0 表示直连路由
     update(true, entry);
   }
   uint64_t last_time = 0;
@@ -257,7 +255,7 @@ int main(int argc, char *argv[])
     }
 
     // 检查 IPv6 头部长度
-    ip6_hdr *ip6 = (ip6_hdr *)packet;
+    ip6_hdr *ip6 = (ip6_hdr *)&packet[0];
     if (res < sizeof(ip6_hdr))
     {
       printf("Received invalid ipv6 packet (%d < %d)\n", res, sizeof(ip6_hdr));
@@ -335,7 +333,7 @@ int main(int argc, char *argv[])
             // 的设置，可以忽略
             for (int i = 0; i < rip.numEntries; i++)
             {
-              rip.entries[i].metric = min(rip.entries[i].metric + 1, 16);
+              rip.entries[i].metric = std::min(rip.entries[i].metric + 1, 16);
               in6_addr srcAddr = eui64(src_mac);
               RoutingTableEntry thisEntry;
               thisEntry.addr = rip.entries[i].prefix_or_nh;
@@ -348,7 +346,7 @@ int main(int argc, char *argv[])
             }
 
             // 接下来的处理中，都首先对输入的 RIPng 表项做如下处理：
-            // metric = MIN(metric + cost, infinity)
+            // metric = std::min(metric + cost, infinity)
             // 其中 cost 取 1，表示经过了一跳路由器；infinity 用 16 表示
 
             // 如果出现了一条新的路由表项，并且 metric 不等于 16：
@@ -380,7 +378,7 @@ int main(int argc, char *argv[])
       {
         // 如果是 ICMPv6 packet
         // 检查是否是 Echo Request]
-        icmp6_hdr *srcIcmp6 = (icmp6_hdr *)packet[sizeof(ip6_hdr)];
+        icmp6_hdr *srcIcmp6 = (icmp6_hdr *)&packet[sizeof(ip6_hdr)];
         if ((srcIcmp6)->icmp6_type == ICMP6_ECHO_REQUEST)
         {
           icmp6_hdr *icmp6 = (icmp6_hdr *)&output[sizeof(ip6_hdr)];
@@ -390,7 +388,7 @@ int main(int argc, char *argv[])
           {
             output[i] = packet[i];
           }
-          ip6_hdr *ip6Out = constructOutputIpv6Header(ip6->ip6_plen, IPPROTO_ICMPV6, 64, eui64(src_mac));
+          ip6_hdr *ip6Out = constructOutputIpv6Header(receivedInterface, ip6->ip6_plen, IPPROTO_ICMPV6, 64, eui64(src_mac));
           validateAndFillChecksum(output, ip6Out->ip6_plen + sizeof(ip6_hdr));
           HAL_SendIPPacket(receivedInterface, output, ip6Out->ip6_plen + sizeof(ip6_hdr), src_mac);
         }
@@ -467,7 +465,7 @@ int main(int argc, char *argv[])
           // Code 取 0，表示 No route to destination
           // 详见 RFC 4443 Section 3.1 Destination Unreachable Message
           // 计算 Checksum 后由自己的 IPv6 地址发送给源 IPv6 地址。
-          sendICMPv6Error(1,0,0,res,src_mac,receivedInterface)
+          sendICMPv6Error(1, 0, 0, res, src_mac, receivedInterface);
           printf("Destination IP %s not found in routing table",
                  inet6_ntoa(ip6->ip6_dst));
           printf(" and source IP is %s\n", inet6_ntoa(ip6->ip6_src));
