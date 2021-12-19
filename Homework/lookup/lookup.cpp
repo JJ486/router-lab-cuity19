@@ -137,14 +137,19 @@ int mask_to_len(const in6_addr mask)
 {
   // TODO
   short prefLen = 128;
-  for (int i = 16; i >= 0; i--)
+  for (int i = 3; i >= 0; i--)
   {
-      if (mask.s6_addr[i])
+    for (int j = 3; j >= 0; j--)
+    {
+      for (int k = 0; k < 8; k++)
       {
-        break;
+        if (mask.s6_addr[i * 4 + j] & (1 << k))
+          goto outside;
+        prefLen--;
       }
-      prefLen -= 8;
+    }
   }
+outside:
   return prefLen;
 }
 
@@ -162,5 +167,10 @@ in6_addr len_to_mask(int len)
   {
     returnedMask.s6_addr[i] = 0xFF;
   }
+  for (int i = 0; i < len % 8; i++)
+  {
+    returnedMask.s6_addr[len / 8] |= 0x80 >> i;
+  }
+
   return returnedMask;
 }
