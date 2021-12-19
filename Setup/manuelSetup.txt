@@ -1,0 +1,7 @@
+sudo ~/Projects/router-lab-cuity19/Setup/netns/setup-netns.sh
+sudo ip netns exec R1 bird6 -f -c /home/parallels/Projects/router-lab-cuity19/Setup/netns/v1/bird-r1.conf -d -s /home/parallels/Projects/router-lab-cuity19/Setup/netns/v1/bird-r1.ctl
+sudo ip netns exec R3 bird6 -f -c /home/parallels/Projects/router-lab-cuity19/Setup/netns/v1/bird-r3.conf -d -s /home/parallels/Projects/router-lab-cuity19/Setup/netns/v1/bird-r3.ctl
+sudo ip netns exec R2 /home/parallels/Projects/router-lab-cuity19/Homework/router/r2/router
+
+sudo ip netns exec PC1 bird6 -f -c /home/parallels/Projects/router-lab-cuity19/Setup/part9to11/bird-pc1.conf -s /home/parallels/Projects/router-lab-cuity19/Setup/part9to11/bird-pc1.ctl -d
+sudo ip netns exec PC1 ip l set lo up
