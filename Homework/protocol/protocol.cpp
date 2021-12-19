@@ -52,16 +52,12 @@ RipErrorCode disassemble(const uint8_t *packet, uint32_t len,
       if(thisEntry->prefix_len>128)
         return RipErrorCode::ERR_RIP_BAD_PREFIX_LEN;
       uint16_t prefLen=128;
-      for (int i = 3; i >=0; i--)
+      for (int i = 7; i >=0; i--)
       {
-        for (int j = 3; j >= 0; j--)
-        {
-          if(thisEntry->prefix_or_nh.s6_addr[i*4+j])
-          goto outside;
-          prefLen-=8;
-        }
+          if(thisEntry->prefix_or_nh.s6_addr[i*2]||thisEntry->prefix_or_nh.s6_addr[i*2+1])
+          break;
+          prefLen-=16;
       }
-      outside:
       if(thisEntry->prefix_len!=prefLen)
         return RipErrorCode::ERR_RIP_INCONSISTENT_PREFIX_LENGTH;
     }
