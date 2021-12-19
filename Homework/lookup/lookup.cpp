@@ -96,8 +96,9 @@ void update(bool insert, const RoutingTableEntry entry)
       {
         if (insert)
         {
-          if(it->learnedAddr==entry.learnedAddr){
-            it->metric=entry.metric;
+          if (it->learnedAddr == entry.learnedAddr)
+          {
+            it->metric = entry.metric;
           }
           else if (it->metric > entry.metric)
           {
@@ -113,7 +114,7 @@ void update(bool insert, const RoutingTableEntry entry)
       }
     }
   }
-  if (insert && entry.metric!=16 &&it == routeTable.end())
+  if (insert && entry.metric != 16 && it == routeTable.end())
     routeTable.push_back(entry);
   // TODO
 }
@@ -136,19 +137,14 @@ int mask_to_len(const in6_addr mask)
 {
   // TODO
   short prefLen = 128;
-  for (int i = 3; i >= 0; i--)
+  for (int i = 16; i >= 0; i--)
   {
-    for (int j = 3; j >= 0; j--)
-    {
-      for (int k = 0; k < 8; k++)
+      if (mask.s6_addr[i])
       {
-        if (mask.s6_addr[i * 4 + j] & (1 << k))
-          goto outside;
-        prefLen--;
+        break;
       }
-    }
+      prefLen -= 8;
   }
-outside:
   return prefLen;
 }
 
@@ -165,10 +161,6 @@ in6_addr len_to_mask(int len)
   for (int i = 0; i < len / 8; i++)
   {
     returnedMask.s6_addr[i] = 0xFF;
-  }
-  for (int i = 0; i < len % 8; i++)
-  {
-    returnedMask.s6_addr[len / 8] |= 0x80 >> i;
   }
   return returnedMask;
 }
