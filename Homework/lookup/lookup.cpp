@@ -96,7 +96,7 @@ void update(bool insert, const RoutingTableEntry entry)
       {
         if (insert)
         {
-          if (it->addr == entry.learnedAddr)
+          if (it->learnedAddr == entry.learnedAddr)
           {
             it->metric = entry.metric;
           }
